@@ -23,7 +23,7 @@ import rospy
 import numpy as np
 import cv2
 from cv_bridge import CvBridge
-from std_msgs.msg import UInt8, Float64
+from std_msgs.msg import Int64, Float64
 from sensor_msgs.msg import Image, CompressedImage
 from dynamic_reconfigure.server import Server
 from turtlebot3_autorace_detect.cfg import DetectLaneParamsConfig
@@ -78,10 +78,10 @@ class DetectLane():
         self.pub_lane = rospy.Publisher('/detect/lane', Float64, queue_size = 1)
 
         # subscribes state : yellow line reliability
-        self.pub_yellow_line_reliability = rospy.Publisher('/detect/yellow_line_reliability', UInt8, queue_size=1)
+        self.pub_yellow_line_reliability = rospy.Publisher('/detect/yellow_line_reliability', Int64, queue_size=1)
  
         # subscribes state : white line reliability
-        self.pub_white_line_reliability = rospy.Publisher('/detect/white_line_reliability', UInt8, queue_size=1)
+        self.pub_white_line_reliability = rospy.Publisher('/detect/white_line_reliability', Int64, queue_size=1)
  
         self.cvBridge = CvBridge()
 
@@ -92,7 +92,7 @@ class DetectLane():
 
         self.reliability_white_line = 100
         self.reliability_yellow_line = 100
-
+        
     def cbGetDetectLaneParam(self, config, level):
         rospy.loginfo("[Detect Lane] Detect Lane Calibration Parameter reconfigured to")
         rospy.loginfo("hue_white_l : %d", config.hue_white_l)
@@ -225,7 +225,7 @@ class DetectLane():
             if self.reliability_white_line <= 99:
                 self.reliability_white_line += 5
 
-        msg_white_line_reliability = UInt8()
+        msg_white_line_reliability = Int64()
         msg_white_line_reliability.data = self.reliability_white_line
         self.pub_white_line_reliability.publish(msg_white_line_reliability)
 
@@ -286,7 +286,7 @@ class DetectLane():
             if self.reliability_yellow_line <= 99:
                 self.reliability_yellow_line += 5
 
-        msg_yellow_line_reliability = UInt8()
+        msg_yellow_line_reliability = Int64()
         msg_yellow_line_reliability.data = self.reliability_yellow_line
         self.pub_yellow_line_reliability.publish(msg_yellow_line_reliability)
 
@@ -421,7 +421,7 @@ class DetectLane():
         
         self.is_center_x_exist = True
 
-        if self.reliability_white_line > 50 and self.reliability_yellow_line > 50:   
+        if self.reliability_white_line > 30 and self.reliability_yellow_line > 30:   
             if white_fraction > 3000 and yellow_fraction > 3000:
                 centerx = np.mean([self.left_fitx, self.right_fitx], axis=0)
                 pts = np.hstack((pts_left, pts_right))
@@ -444,13 +444,13 @@ class DetectLane():
 
                 cv2.polylines(color_warp_lines, np.int_([pts_center]), isClosed=False, color=(0, 255, 255), thickness=12)
 
-        elif self.reliability_white_line <= 50 and self.reliability_yellow_line > 50:
+        elif self.reliability_white_line <= 30 and self.reliability_yellow_line > 30:
             centerx = np.add(self.left_fitx, 320)
             pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
 
             cv2.polylines(color_warp_lines, np.int_([pts_center]), isClosed=False, color=(0, 255, 255), thickness=12)
 
-        elif self.reliability_white_line > 50 and self.reliability_yellow_line <= 50:
+        elif self.reliability_white_line > 30 and self.reliability_yellow_line <= 30:
             centerx = np.subtract(self.right_fitx, 320)
             pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
 

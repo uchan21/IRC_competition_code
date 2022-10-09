@@ -85,8 +85,8 @@ class CoreNodeController():
     def fnControlNode(self): 
         # lane_following
         if self.current_mode == self.CurrentMode.lane_following.value:
-            rospy.loginfo("Current step : searching construction sign")
-            rospy.loginfo("Go to next step : construction")
+            rospy.loginfo_once("Current step : searching construction sign")
+            rospy.loginfo_once("Go to next step : construction")
 
             self.fnLaunch(self.Launcher.launch_camera_ex_calib.value, True)
 
@@ -103,8 +103,8 @@ class CoreNodeController():
             msg_pub_construction_order = UInt8()
 
             if self.current_step_construction == self.StepOfConstruction.find_obstacle.value:
-                rospy.loginfo("Current step : find_obstacle")
-                rospy.loginfo("Go to next setp : avoid_obstacle")
+                rospy.loginfo_once("Current step : find_obstacle")
+                rospy.loginfo_once("Go to next setp : avoid_obstacle")
 
                 msg_pub_construction_order.data = self.StepOfConstruction.find_obstacle.value
 
@@ -118,8 +118,8 @@ class CoreNodeController():
                 self.fnLaunch(self.Launcher.launch_control_moving.value, False)
 
             elif self.current_step_construction == self.StepOfConstruction.avoid_obstacle.value:
-                rospy.loginfo("Current step : avoid_obstacle")
-                rospy.loginfo("Go to next step : exit")
+                rospy.loginfo_once("Current step : avoid_obstacle")
+                rospy.loginfo_once("Go to next step : exit")
 
                 msg_pub_construction_order.data = self.StepOfConstruction.avoid_obstacle.value
 
@@ -128,12 +128,13 @@ class CoreNodeController():
                 self.fnLaunch(self.Launcher.launch_detect_lane.value, True)
                 self.fnLaunch(self.Launcher.launch_detect_sign.value, False)
                 self.fnLaunch(self.Launcher.launch_detect_construction.value, True)
-
-                self.fnLaunch(self.Launcher.launch_control_lane.value, False)
-                self.fnLaunch(self.Launcher.launch_control_moving.value, True) 
+                
+                #!@
+                self.fnLaunch(self.Launcher.launch_control_lane.value, True)
+                self.fnLaunch(self.Launcher.launch_control_moving.value, False) 
             
             elif self.current_step_construction == self.StepOfConstruction.exit.value:
-                rospy.loginfo("Current step : exit")
+                rospy.loginfo_once("Current step : exit")
 
                 msg_pub_construction_order.data = self.StepOfConstruction.exit.value
 
@@ -169,7 +170,7 @@ class CoreNodeController():
             if is_start == True:
                 if self.launch_detect_sign_launched == False:
                     self.launch_detect_sign = roslaunch.scriptapi.ROSLaunch()
-                    self.launch_detect_sign = roslaunch.parent.ROSLaunchParent(self.uuid, [self.ros_package_path + "turtlebot3_autorace_detect/launch/detect_sign.launch"])
+                    self.launch_detect_sign = roslaunch.parent.ROSLaunchParent(self.uuid, [(self.ros_package_path + "turtlebot3_autorace_detect/launch/detect_sign.launch",["mission:=construction"])])
                     self.launch_detect_sign_launched = True
                     self.launch_detect_sign.start()
                 else:
