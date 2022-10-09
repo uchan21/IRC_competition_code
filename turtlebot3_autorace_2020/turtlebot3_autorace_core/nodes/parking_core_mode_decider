@@ -19,6 +19,7 @@
 
 # Author: Leon Jung, Gilbert, Ashe Kim
 
+# function for decide parking mode & publish parking is ready
 import rospy
 from enum import Enum
 from std_msgs.msg import UInt8
@@ -59,7 +60,7 @@ class CoreModeDecider():
                 rospy.loginfo("currentmode : any sign detected")
                 if msg_data.data == self.TrafficSign.parking.value:         # Parking Sign detected
                     rospy.loginfo("currentmode : parking detected")
-                    self.current_mode = self.CurrentMode.parking.value
+                    self.current_mode = self.CurrentMode.parking.value      # change lane_detect -> parking
             else:
                 pass
 
