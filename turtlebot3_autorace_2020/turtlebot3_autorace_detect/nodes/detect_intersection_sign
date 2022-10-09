@@ -23,6 +23,7 @@ import rospy
 import numpy as np
 import os
 import cv2
+
 from enum import Enum
 from std_msgs.msg import UInt8
 from sensor_msgs.msg import Image, CompressedImage
@@ -60,17 +61,18 @@ class DetectSign():
     def fnPreproc(self):
         # Initiate SIFT detector
         self.sift = cv2.SIFT_create()
-
+        
+        # setting path
         dir_path = os.path.dirname(os.path.realpath(__file__))
         dir_path = dir_path.replace('turtlebot3_autorace_detect/nodes', 'turtlebot3_autorace_detect/')
         dir_path += 'image/'
 
-        self.img_intersection = cv2.imread(dir_path + 'intersection.png',0)
-        self.img_left  = cv2.imread(dir_path + 'left.png',0)
-        self.img_right = cv2.imread(dir_path + 'right.png',0)
+        self.img_intersection = cv2.imread(dir_path + 'intersection.png',0) #find intersection sign
+        self.img_left  = cv2.imread(dir_path + 'left.png',0) #left sign
+        self.img_right = cv2.imread(dir_path + 'right.png',0) #right sign
 
-        self.kp_intersection, self.des_intersection  = self.sift.detectAndCompute(self.img_intersection, None)
-        self.kp_left, self.des_left  = self.sift.detectAndCompute(self.img_left, None)
+        self.kp_intersection, self.des_intersection  = self.sift.detectAndCompute(self.img_intersection, None) #abstract feature (origin img)
+        self.kp_left, self.des_left  = self.sift.detectAndCompute(self.img_left, None) 
         self.kp_right, self.des_right = self.sift.detectAndCompute(self.img_right, None)
 
         FLANN_INDEX_KDTREE = 0
@@ -101,6 +103,7 @@ class DetectSign():
         elif self.sub_image_type == "raw":
             cv_image_input = self.cvBridge.imgmsg_to_cv2(image_msg, "bgr8")
 
+        #match Count setting
         MIN_MATCH_COUNT = 9 #9
         MIN_MSE_DECISION = 50000
 
@@ -156,6 +159,18 @@ class DetectSign():
         else:
             matches_left = None
             # rospy.loginfo("nothing detected")
+
+            #good_right = []
+            #for m,n in matches_right:
+            #    if m.distance < 0.7*n.distance:
+            #       good_right.append(m)
+
+            #msg_sign = UInt8()
+            #msg_sign.data = self.TrafficSign.right.value
+
+            #self.pub_traffic_sign.publish(msg_sign)
+            #rospy.loginfo("detect right sign")
+            #image_out_num = 4
 
         good_right = []
         for m,n in matches_right:

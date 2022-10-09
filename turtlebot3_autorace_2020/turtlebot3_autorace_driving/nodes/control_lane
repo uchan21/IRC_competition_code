@@ -19,33 +19,34 @@
 
 # Author: Leon Jung, Gilbert, Ashe Kim
  
-from math import sin
 import rospy
 import numpy as np
-from std_msgs.msg import Float64, Int64
 from sensor_msgs.msg import LaserScan
+from std_msgs.msg import Float64, UInt8
 from geometry_msgs.msg import Twist
 
 class ControlLane():
     def __init__(self):
         # Object scan & control modify
-        self.sub_yellow_line_reliability = rospy.Subscriber('/detect/yellow_line_reliability', Int64, self.cbYellowRel, queue_size=1)
-        self.sub_white_line_reliability = rospy.Subscriber('/detect/white_line_reliability', Int64, self.cbWhiteRel, queue_size=1)
+        self.sub_yellow_line_reliability = rospy.Subscriber('/detect/yellow_line_reliability', UInt8, self.cbYellowRel, queue_size=1)
+        self.sub_white_line_reliability = rospy.Subscriber('/detect/white_line_reliability', UInt8, self.cbWhiteRel, queue_size=1)
         self.sub_scan_obstacle = rospy.Subscriber('/scan', LaserScan, self.cbScanObstacle, queue_size=1)
-        #self.sub_construction_order = rospy.Subscriber('/detect/construction_order', UInt8, queue_size=1)
         # Original lane following
         self.sub_lane = rospy.Subscriber('/control/lane', Float64, self.cbFollowLane, queue_size = 1)
         self.sub_max_vel = rospy.Subscriber('/control/max_vel', Float64, self.cbGetMaxVel, queue_size = 1)
         self.pub_cmd_vel = rospy.Publisher('/control/cmd_vel', Twist, queue_size = 1)
 
         self.lastError = 0
-        self.MAX_VEL = 0.25
+        #self.MAX_VEL = 0.1
+        self.MAX_VEL = 0.15
+
         self.is_obstacle_detected = False
         self.yellow_reliability = 100
         self.white_reliability = 100
         self.object_compensate = 0
-        rospy.on_shutdown(self.fnShutDown)
 
+        rospy.on_shutdown(self.fnShutDown)
+    
     def cbYellowRel(self, reliable_msg):
         self.yellow_reliability = reliable_msg.data
 
@@ -57,54 +58,31 @@ class ControlLane():
 
     def cbFollowLane(self, desired_center):
         center = desired_center.data + self.object_compensate
-
-        error = center - 500
         rospy.loginfo("{}".format(center))
-        Kp = 0.007
-        Kd = 0.015
+        error = center - 500 if (center > 0 and center < 1000) else 500 
+        
+        #Basic PD
+        #Kp = 0.0025
+        #Kd = 0.007
+        #Custom PD1
+        Kp = 0.004
+        Kd = 0.01
+        #Custom PD2
+        #Kp = 0.005
+        #Kd = 0.015
 
         angular_z = Kp * error + Kd * (error - self.lastError)
         self.lastError = error
         
         twist = Twist()
         # twist.linear.x = 0.05        
-        twist.linear.x = min(max(self.MAX_VEL * ((1 - abs(error) / 500) ** 2.2), 0.1), 0.1)
+        twist.linear.x = min(max(self.MAX_VEL * ((1 - abs(error) / 500) ** 2.2),0.05), 0.075)
         twist.linear.y = 0
         twist.linear.z = 0
         twist.angular.x = 0
         twist.angular.y = 0
         twist.angular.z = -max(angular_z, -2.0) if angular_z < 0 else -min(angular_z, 2.0)
         self.pub_cmd_vel.publish(twist)
-
-    def cbScanObstacle(self, scan):
-        angle_scan = 15
-        scan_start = 0 - angle_scan
-        scan_end = 0 + angle_scan
-        is_obstacle_detected = False
-        detectlist = []
-        summation = 0
-        for i in range(scan_start, scan_end):
-            if scan.ranges[i] < 0.4/np.cos(np.pi * i / 180) and scan.ranges[i] > 0.01:
-                is_obstacle_detected = True
-                detectlist.append(abs(i))
-                summation += i
-        if is_obstacle_detected == True:
-            rospy.loginfo("Object detected@@@ {}".format(min(detectlist)))
-            if self.white_reliability > 30 and self.yellow_reliability <= 10:
-                self.object_compensate += -13*(25-abs(min(detectlist)))/5
-                rospy.loginfo("Object detected@@@WHITE NEAR")
-            elif self.white_reliability <= 10 and self.yellow_reliability > 30:
-                rospy.loginfo("Object detected@@@YELLOW NEAR")
-                self.object_compensate += 13*(25-abs(min(detectlist)))/5
-            else:
-                if summation  > 0:
-                    self.object_compensate += 13*(25-abs(min(detectlist)))/5
-                elif summation < 0:
-                    self.object_compensate += -13*(25-abs(min(detectlist)))/5
-        else:
-            self.object_compensate += -self.object_compensate/5
-
-        self.is_obstacle_detected = is_obstacle_detected
 
     def fnShutDown(self):
         rospy.loginfo("Shutting down. cmd_vel will be 0")
@@ -117,7 +95,40 @@ class ControlLane():
         twist.angular.y = 0
         twist.angular.z = 0
         self.pub_cmd_vel.publish(twist) 
+    
+    def cbScanObstacle(self, scan):
+        angle_scan = 20
+        scan_start = 0 - angle_scan
+        scan_end = 0 + angle_scan
+        is_obstacle_detected = False
+        detectlist = []
+        summation = 0
+        for i in range(scan_start, scan_end):
+            if scan.ranges[i] < 0.4/np.cos(np.pi * i / 180) and scan.ranges[i] > 0.01:
+                is_obstacle_detected = True
+                detectlist.append(abs(i))
+                summation += i
+        if is_obstacle_detected == True and abs(self.object_compensate) < 250:
+            rospy.loginfo("Object detected@@@ {}".format(min(detectlist)))
+            if self.white_reliability > self.yellow_reliability and self.yellow_reliability <= 60:
+                self.object_compensate += -25
+                rospy.loginfo("Object detected@@@WHITE NEAR")
+            elif self.white_reliability <= 60 and self.yellow_reliability > self.white_reliability:
+                rospy.loginfo("Object detected@@@YELLOW NEAR")
+                self.object_compensate += 25
+            else:
+                if summation  > 0:
+                    self.object_compensate += 25
+                elif summation < 0:
+                    self.object_compensate += -25
+        else:
+            self.object_compensate = 0
 
+        if abs(self.object_compensate) >= 250:
+            self.object_compensate = 250 
+        
+        self.is_obstacle_detected = is_obstacle_detected
+    
     def main(self):
         rospy.spin()
 

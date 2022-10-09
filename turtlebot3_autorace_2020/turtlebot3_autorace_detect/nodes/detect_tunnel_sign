@@ -59,7 +59,7 @@ class DetectSign():
 
     def fnPreproc(self):
         # Initiate SIFT detector
-        self.sift = cv2.SIFT_create()
+        self.sift = cv2.SIFT_create() # edit
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
         dir_path = dir_path.replace('turtlebot3_autorace_detect/nodes', 'turtlebot3_autorace_detect/')

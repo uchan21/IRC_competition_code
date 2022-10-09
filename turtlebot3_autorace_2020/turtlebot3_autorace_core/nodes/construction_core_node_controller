@@ -99,7 +99,7 @@ class CoreNodeController():
 
         # construction
         elif self.current_mode == self.CurrentMode.construction.value:
-            rospy.loginfo("New trigger for construction")
+            rospy.loginfo_once("New trigger for construction")
             msg_pub_construction_order = UInt8()
 
             if self.current_step_construction == self.StepOfConstruction.find_obstacle.value:
@@ -128,8 +128,7 @@ class CoreNodeController():
                 self.fnLaunch(self.Launcher.launch_detect_lane.value, True)
                 self.fnLaunch(self.Launcher.launch_detect_sign.value, False)
                 self.fnLaunch(self.Launcher.launch_detect_construction.value, True)
-                
-                #!@
+
                 self.fnLaunch(self.Launcher.launch_control_lane.value, True)
                 self.fnLaunch(self.Launcher.launch_control_moving.value, False) 
             
@@ -170,7 +169,7 @@ class CoreNodeController():
             if is_start == True:
                 if self.launch_detect_sign_launched == False:
                     self.launch_detect_sign = roslaunch.scriptapi.ROSLaunch()
-                    self.launch_detect_sign = roslaunch.parent.ROSLaunchParent(self.uuid, [(self.ros_package_path + "turtlebot3_autorace_detect/launch/detect_sign.launch",["mission:=construction"])])
+                    self.launch_detect_sign = roslaunch.parent.ROSLaunchParent(self.uuid, [self.ros_package_path + "turtlebot3_autorace_detect/launch/detect_sign.launch"])
                     self.launch_detect_sign_launched = True
                     self.launch_detect_sign.start()
                 else:

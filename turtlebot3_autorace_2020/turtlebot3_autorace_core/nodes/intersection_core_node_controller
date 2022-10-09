@@ -103,15 +103,17 @@ class CoreNodeController():
             if self.current_step_intersection == self.StepOfIntersection.detect_direction.value:
                 rospy.loginfo("Current step : searching_intersection_sign")
                 rospy.loginfo("Go to next step : exit")
-
+            
                 msg_pub_intersection_order.data = self.StepOfIntersection.detect_direction.value
 
                 self.fnLaunch(self.Launcher.launch_detect_lane.value, True)
+                self.fnLaunch(self.Launcher.launch_control_lane.value, True)
+                self.fnLaunch(self.Launcher.launch_control_moving.value, True)
+
                 self.fnLaunch(self.Launcher.launch_detect_sign.value, True)
                 self.fnLaunch(self.Launcher.launch_detect_intersection.value, True)
 
-                self.fnLaunch(self.Launcher.launch_control_lane.value, True)
-                self.fnLaunch(self.Launcher.launch_control_moving.value, True)
+
               
             elif self.current_step_intersection == self.StepOfIntersection.exit.value:
                 rospy.loginfo("Current step : exit")
@@ -148,7 +150,7 @@ class CoreNodeController():
             if is_start == True:
                 if self.launch_detect_sign_launched == False:
                     self.launch_detect_sign = roslaunch.scriptapi.ROSLaunch()
-                    self.launch_detect_sign = roslaunch.parent.ROSLaunchParent(self.uuid, [self.ros_package_path + "turtlebot3_autorace_detect/launch/detect_sign.launch"])
+                    self.launch_detect_sign = roslaunch.parent.ROSLaunchParent(self.uuid, [(self.ros_package_path + "turtlebot3_autorace_detect/launch/detect_sign.launch",["mission:=intersection"])])
                     self.launch_detect_sign_launched = True
                     self.launch_detect_sign.start()
                 else:

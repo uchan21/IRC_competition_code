@@ -30,7 +30,8 @@ class DetectIntersection():
    
         # subscribes state
         self.sub_traffic_sign = rospy.Subscriber('/detect/traffic_sign', UInt8, self.cbInvokedByTrafficSign, queue_size=1)
-        self.sub_intersection_order = rospy.Subscriber('/detect/intersection_order', UInt8, self.cbIntersectionOrder, queue_size=1)
+        #uchans edit
+        #self.sub_intersection_order = rospy.Subscriber('/detect/intersection_order', UInt8, self.cbIntersectionOrder, queue_size=1)
         self.sub_moving_completed = rospy.Subscriber('/control/moving/complete', UInt8, self.cbMovingComplete, queue_size = 1)
 
         # publisher state
