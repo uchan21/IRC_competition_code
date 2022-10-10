@@ -52,8 +52,8 @@ class DetectLane():
         self.lightness_yellow_h = rospy.get_param("~detect/lane/yellow/lightness_h", 255)
         
         # uchans variation
-        self.left_sign = 0;
-        self.right_sign = 0;
+        self.left_sign = 0
+        self.right_sign = 0
         #
 
         self.is_calibration_mode = rospy.get_param("~is_detection_calibration_mode", False)
@@ -457,6 +457,7 @@ class DetectLane():
         rospy.loginfo("{}, {}".format(self.reliability_white_line, self.reliability_yellow_line))
         # find center value
         if self.reliability_white_line<=50 and self.reliability_yellow_line<=50:
+            rospy.loginfo("reliability low uchans code")
             if self.left_sign == 1: # T구간에서 왼쪽 사인이면
                 msg_moving = MovingParam()
                 msg_moving.moving_type=2
@@ -472,6 +473,8 @@ class DetectLane():
                 msg_moving.moving_value_linear=0.0
                 self.pub_moving.publish(msg_moving) 
                 self.right_sign =0
+        if white_fraction<=3000 and yellow_fraction<=3000:
+            rospy.loginfo("fraction low uchans thing")
                 
         
         if self.reliability_white_line > 50 and self.reliability_yellow_line > 50:   
