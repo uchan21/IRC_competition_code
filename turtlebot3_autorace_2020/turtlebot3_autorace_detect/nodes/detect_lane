@@ -198,26 +198,28 @@ class DetectLane():
             
             #uchans exception    
             if self.left_sign == 1:
+                rospy.loginfo("left_sige up")
                 centerx = np.add(self.left_fitx, 320)
                 #pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
                 msg_desired_center = Float64()
                 msg_desired_center.data = centerx.item(350)
                 for i in range(1,8):
                     self.pub_lane.publish(msg_desired_center)
-                    rospy.loginfo("uchans code on")
+                    rospy.loginfo("uchans left_code on")
                     rospy.rate(1)
                 
                 self.left_sign = 0
                 rospy.loginfo("uchans code off")
                     
             if self.right_sign == 1:
+                rospy.loginfo("right_sign up")
                 centerx = np.subtract(self.right_fitx, 320)
                 #pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
                 msg_desired_center = Float64()
                 msg_desired_center.data = centerx.item(350)
                 for i in range(1,8):
                     self.pub_lane.publish(msg_desired_center)
-                    rospy.loginfo("uchans code on")
+                    rospy.loginfo("uchans right_code on")
                     rospy.rate(1)
                 
                 self.right_sign = 0
@@ -235,26 +237,32 @@ class DetectLane():
                 
             #uchans exception    
             if self.left_sign == 1:
+                rospy.loginfo("left_sige up")
                 centerx = np.add(self.left_fitx, 320)
                 #pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
                 msg_desired_center = Float64()
                 msg_desired_center.data = centerx.item(350)
                 for i in range(1,8):
                     self.pub_lane.publish(msg_desired_center)
+                    rospy.loginfo("uchans exception left_code on")
                     rospy.rate(1)
                 
                 self.left_sign = 0
+                rospy.loginfo("uchans code off")
                     
             if self.right_sign == 1:
+                rospy.loginfo("right_sign up")
                 centerx = np.subtract(self.right_fitx, 320)
                 #pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
                 msg_desired_center = Float64()
                 msg_desired_center.data = centerx.item(350)
                 for i in range(1,8):
                     self.pub_lane.publish(msg_desired_center)
+                    rospy.loginfo("uchans exception right_code on")
                     rospy.rate(1)
                 
                 self.right_sign = 0
+                rospy.loginfo("uchans code off")
             #
 
         MOV_AVG_LENGTH = 5
