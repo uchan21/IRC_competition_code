@@ -199,7 +199,8 @@ class DetectLane():
             #uchans exception    
             if self.left_sign == 1:
                 rospy.loginfo("left_sige up")
-                centerx = np.add(self.left_fitx, 320)
+                #centerx = np.add(self.left_fitx, 320)
+                centerx = np.subtract(self.right_fitx, 320)
                 #pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
                 msg_desired_center = Float64()
                 msg_desired_center.data = centerx.item(350)
@@ -213,7 +214,8 @@ class DetectLane():
                     
             if self.right_sign == 1:
                 rospy.loginfo("right_sign up")
-                centerx = np.subtract(self.right_fitx, 320)
+                #centerx = np.subtract(self.right_fitx, 320)
+                centerx = np.add(self.left_fitx, 320)
                 #pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
                 msg_desired_center = Float64()
                 msg_desired_center.data = centerx.item(350)
@@ -238,7 +240,8 @@ class DetectLane():
             #uchans exception    
             if self.left_sign == 1:
                 rospy.loginfo("left_sige up")
-                centerx = np.add(self.left_fitx, 320)
+                #centerx = np.add(self.left_fitx, 320)
+                centerx = np.subtract(self.right_fitx, 320)
                 #pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
                 msg_desired_center = Float64()
                 msg_desired_center.data = centerx.item(350)
@@ -252,7 +255,8 @@ class DetectLane():
                     
             if self.right_sign == 1:
                 rospy.loginfo("right_sign up")
-                centerx = np.subtract(self.right_fitx, 320)
+                # centerx = np.subtract(self.right_fitx, 320)
+                centerx = np.add(self.left_fitx, 320)
                 #pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
                 msg_desired_center = Float64()
                 msg_desired_center.data = centerx.item(350)
