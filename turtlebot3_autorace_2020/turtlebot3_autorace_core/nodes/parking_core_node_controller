@@ -34,7 +34,8 @@ class CoreNodeController():
         # subscribes : status returned
         self.sub_parking_stamped = rospy.Subscriber('/detect/parking_stamped', UInt8, self.cbParkingStamped, queue_size=1)
         self.sub_mode_control = rospy.Subscriber('/core/decided_mode', UInt8, self.cbReceiveMode, queue_size=1)
-        
+        self.sub_command = rospy.Subscriber('/control/mode', UInt8, self.cbParkingMode, queue_size=1)
+
         # publishes orders
         self.pub_parking_order = rospy.Publisher('/detect/parking_order', UInt8, queue_size=1)   
         self.pub_mode_return = rospy.Publisher('/core/returned_mode', UInt8, queue_size=1)
@@ -57,12 +58,25 @@ class CoreNodeController():
 
         self.is_triggered = False
 
+        self.mode = 2 # yongbin code
+
         loop_rate = rospy.Rate(10) # 10hz
         while not rospy.is_shutdown():
             if self.is_triggered == True:
                 self.fnControlNode()
             
             loop_rate.sleep()
+
+    def cbParkingMode(self, mode_msg):
+        rospy.loginfo("parking mode start")
+        self.mode = mode_msg.data;
+        if (self.mode == 1): # mode lane
+            self.fnLaunch(self.Launcher.launch_control_lane.value, True)
+            self.fnLaunch(self.Launcher.launch_control_moving.value, False)
+            
+        elif (self.mode == 2): # mode moving
+            self.fnLaunch(self.Launcher.launch_control_lane.value, False)
+            self.fnLaunch(self.Launcher.launch_control_moving.value, True)
 
     def cbReceiveMode(self, mode_msg):
         rospy.loginfo("starts the progress with %d", mode_msg.data)
