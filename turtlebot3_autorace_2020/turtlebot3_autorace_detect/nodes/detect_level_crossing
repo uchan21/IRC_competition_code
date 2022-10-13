@@ -24,7 +24,7 @@ import numpy as np
 import cv2
 import math
 from enum import Enum
-from std_msgs.msg import UInt8, Float64
+from std_msgs.msg import UInt16, Float64
 from sensor_msgs.msg import Image, CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 from dynamic_reconfigure.server import Server
@@ -122,12 +122,13 @@ class DetectLevel():
                 # publishes color filtered image in raw type
                 self.pub_image_color_filtered = rospy.Publisher('/detect/image_output_sub1', Image, queue_size = 1)
 
-        self.sub_level_crossing_order = rospy.Subscriber('/detect/level_crossing_order', UInt8, self.cbLevelCrossingOrder, queue_size=1)
-        self.sub_level_crossing_finished = rospy.Subscriber('/control/level_crossing_finished', UInt8, self.cbLevelCrossingFinished, queue_size = 1)
+        self.sub_level_crossing_order = rospy.Subscriber('/detect/level_crossing_order', UInt16, self.cbLevelCrossingOrder, queue_size=1)
+        self.sub_level_crossing_finished = rospy.Subscriber('/control/level_crossing_finished', UInt16, self.cbLevelCrossingFinished, queue_size = 1)
 
-        self.pub_level_crossing_return = rospy.Publisher('/detect/level_crossing_stamped', UInt8, queue_size=1)
+        self.pub_level_crossing_return = rospy.Publisher('/detect/level_crossing_stamped', UInt16, queue_size=1)
         self.pub_max_vel = rospy.Publisher('/control/max_vel', Float64, queue_size = 1)
-
+        self.pub_traffic_sign = rospy.Publisher('/detect/traffic_sign', UInt16, queue_size=1)
+        self.TrafficSign = Enum('TrafficSign', 'idle lane_following traffic_light intersection left right construction parking level_crossing tunnel')
         self.StepOfLevelCrossing = Enum('StepOfLevelCrossing', 'pass_level exit')
         self.is_level_crossing_finished = False
         self.stop_bar_count = 0
@@ -179,7 +180,7 @@ class DetectLevel():
             self.cv_image = self.cvBridge.imgmsg_to_cv2(image_msg, "bgr8")
 
     def cbLevelCrossingOrder(self, order):
-        pub_level_crossing_return = UInt8()
+        pub_level_crossing_return = UInt16()
 
         if order.data == self.StepOfLevelCrossing.pass_level.value:
 
@@ -188,7 +189,14 @@ class DetectLevel():
                 if is_level_detected == True:
                     rospy.loginfo("Level Detect")
                     msg_pub_max_vel = Float64()
-                    msg_pub_max_vel.data = 0.03
+                    msg_pub_max_vel.data = 0.00
+                    self.pub_max_vel.publish(msg_pub_max_vel)
+                    rospy.sleep(10)
+                    msg_data = UInt16()
+                    msg_data.data = self.TrafficSign.tunnel.value
+                    self.pub_traffic_sign.publish(msg_data)
+                    msg_pub_max_vel = Float64()
+                    msg_pub_max_vel.data = 0.22
                     self.pub_max_vel.publish(msg_pub_max_vel)
                     break
                 else:
@@ -201,6 +209,7 @@ class DetectLevel():
                     msg_pub_max_vel = Float64()
                     msg_pub_max_vel.data = 0.0
                     self.pub_max_vel.publish(msg_pub_max_vel)
+
                     break
                 else:
                     pass
@@ -209,8 +218,11 @@ class DetectLevel():
                 _, _, is_level_opened = self.fnFindLevel()
                 if is_level_opened == True:
                     rospy.loginfo("GO")
+                    msg_data = UInt16()
+                    msg_data.data = self.TrafficSign.tunnel.value
+                    self.pub_traffic_sign.publish(msg_data)
                     msg_pub_max_vel = Float64()
-                    msg_pub_max_vel.data = 0.05
+                    msg_pub_max_vel.data = 0.22
                     self.pub_max_vel.publish(msg_pub_max_vel)
                     break
                 else:

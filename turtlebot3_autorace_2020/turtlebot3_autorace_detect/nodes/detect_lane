@@ -23,7 +23,7 @@ import rospy
 import numpy as np
 import cv2
 from cv_bridge import CvBridge
-from std_msgs.msg import UInt8, Float64
+from std_msgs.msg import UInt16, Float64
 from sensor_msgs.msg import Image, CompressedImage
 from dynamic_reconfigure.server import Server
 from turtlebot3_autorace_detect.cfg import DetectLaneParamsConfig
@@ -31,10 +31,8 @@ from enum import Enum
 
 class DetectLane():
     def __init__(self):
-         # # uchans code
-        self.sub_traffic_sign = rospy.Subscriber('/detect/traffic_sign', UInt8, self.cbInvokedByTrafficSign, queue_size=1)
-        self.TrafficSign = Enum('TrafficSign', 'intersection left right')
-        # #
+        self.sub_traffic_sign = rospy.Subscriber('/detect/traffic_sign', UInt16, self.cbInvokedByTrafficSign, queue_size=1)
+        self.TrafficSign = Enum('TrafficSign', 'idle lane_following traffic_light intersection left right construction parking level_crossing tunnel')
         
         self.hue_white_l = rospy.get_param("~detect/lane/white/hue_l", 0)
         self.hue_white_h = rospy.get_param("~detect/lane/white/hue_h", 179)
@@ -86,10 +84,10 @@ class DetectLane():
         self.pub_lane = rospy.Publisher('/detect/lane', Float64, queue_size = 1)
 
         # subscribes state : yellow line reliability
-        self.pub_yellow_line_reliability = rospy.Publisher('/detect/yellow_line_reliability', UInt8, queue_size=1)
+        self.pub_yellow_line_reliability = rospy.Publisher('/detect/yellow_line_reliability', UInt16, queue_size=1)
     
         # subscribes state : white line reliability
-        self.pub_white_line_reliability = rospy.Publisher('/detect/white_line_reliability', UInt8, queue_size=1)
+        self.pub_white_line_reliability = rospy.Publisher('/detect/white_line_reliability', UInt16, queue_size=1)
  
         self.cvBridge = CvBridge()
 
@@ -101,24 +99,42 @@ class DetectLane():
         self.reliability_white_line = 100
         self.reliability_yellow_line = 100
         
+        # Traffic sign checking values
+        # 0 = none, 1 = left, 2 = right  
+        self.moving_direction = 0 
+        self.is_construction = False
+        self.is_parking = False
+        self.lane_sensitivity = 50
+        self.lane_gain = 10
+        self.direction_counter = 0
     # # uchans callback
-    def cbInvokedByTrafficSign(self, traffic_sign_type_msg):    
-        if traffic_sign_type_msg.data == self.TrafficSign.left.value:
-            centerx = np.add(self.left_fitx, 320)
-            #pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
-            msg_desired_center = Float64()
-            msg_desired_center.data = centerx.item(350)
-            self.pub_lane.publish(msg_desired_center)
-
-            #cv2.polylines(color_warp_lines, np.int_([pts_center]), isClosed=False, color=(0, 255, 255), thickness=12)
-
+    def cbInvokedByTrafficSign(self, traffic_sign_type_msg):
+        self.is_construction = False
+        self.moving_direction = 0
+        self.lane_sensitivity = 50
+        self.lane_gain = 20
+        if traffic_sign_type_msg.data == self.TrafficSign.intersection.value:
+            pass
+        elif traffic_sign_type_msg.data == self.TrafficSign.construction.value:
+            self.is_construction = True
+            self.lane_sensitivity = 60
+            self.lane_gain = 40
+            pass
+        elif traffic_sign_type_msg.data == self.TrafficSign.level_crossing.value:
+            pass
+        elif traffic_sign_type_msg.data == self.TrafficSign.parking.value:
+            self.is_parking = True
+            self.moving_direction = 1
+            pass
+        elif traffic_sign_type_msg.data == self.TrafficSign.tunnel.value:
+            pass
+        elif traffic_sign_type_msg.data == self.TrafficSign.left.value:
+            self.moving_direction = 1
+            pass
         elif traffic_sign_type_msg.data == self.TrafficSign.right.value:  
-            centerx = np.subtract(self.right_fitx, 320)
-            #pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
-            msg_desired_center = Float64()
-            msg_desired_center.data = centerx.item(350)
-            self.pub_lane.publish(msg_desired_center)
-            #cv2.polylines(color_warp_lines, np.int_([pts_center]), isClosed=False, color=(0, 255, 255), thickness=12)
+            self.moving_direction = 2
+            pass
+        
      
 
     def cbGetDetectLaneParam(self, config, level):
@@ -156,7 +172,7 @@ class DetectLane():
         # Change the frame rate by yourself. Now, it is set to 1/3 (10fps). 
         # Unappropriate value of frame rate may cause huge delay on entire recognition process.
         # This is up to your computer's operating power.
-        if self.counter % 3 != 0:
+        if self.counter % 2 != 0:
             self.counter += 1
             return
         else:
@@ -247,13 +263,13 @@ class DetectLane():
         how_much_short = 600 - how_much_short
 
         if how_much_short > 100:
-            if self.reliability_white_line >= 20:
-                self.reliability_white_line -= 20
+            if self.reliability_white_line >= self.lane_gain:
+                self.reliability_white_line -= self.lane_gain
         elif how_much_short <= 100:
             if self.reliability_white_line <= 99:
-                self.reliability_white_line += 20
+                self.reliability_white_line += self.lane_gain
 
-        msg_white_line_reliability = UInt8()
+        msg_white_line_reliability = UInt16()
         msg_white_line_reliability.data = self.reliability_white_line
         self.pub_white_line_reliability.publish(msg_white_line_reliability)
 
@@ -308,13 +324,13 @@ class DetectLane():
         how_much_short = 600 - how_much_short
 
         if how_much_short > 100:
-            if self.reliability_yellow_line >= 10:
-                self.reliability_yellow_line -= 20
+            if self.reliability_yellow_line >= self.lane_gain:
+                self.reliability_yellow_line -= self.lane_gain
         elif how_much_short <= 100:
             if self.reliability_yellow_line <= 99:
-                self.reliability_yellow_line += 20
+                self.reliability_yellow_line += self.lane_gain
 
-        msg_yellow_line_reliability = UInt8()
+        msg_yellow_line_reliability = UInt16()
         msg_yellow_line_reliability.data = self.reliability_yellow_line
         self.pub_yellow_line_reliability.publish(msg_yellow_line_reliability)
 
@@ -448,9 +464,22 @@ class DetectLane():
             cv2.polylines(color_warp_lines, np.int_([pts_right]), isClosed=False, color=(255, 255, 0), thickness=25)
         
         self.is_center_x_exist = True
-        rospy.loginfo("{}, {}".format(self.reliability_white_line, self.reliability_yellow_line))
+        if self.direction_counter >= 100:
+            self.moving_direction = 0
+            self.direction_counter = 0
+        else:
+            if self.moving_direction == 1:
+                self.reliability_white_line = 0
+                self.reliability_yellow_line = 100
+                self.direction_counter += 5
+            elif self.moving_direction == 2:
+                self.reliability_white_line = 100
+                self.reliability_yellow_line = 0
+                self.direction_counter += 5
+            #self.moving_direction = 0
+        rospy.loginfo("{}, {}".format(self.reliability_yellow_line, self.reliability_white_line))
         # find center value
-        if self.reliability_white_line > 50 and self.reliability_yellow_line > 50:   
+        if self.reliability_white_line > self.lane_sensitivity and self.reliability_yellow_line > self.lane_sensitivity:   
             if white_fraction > 3000 and yellow_fraction > 3000:
                 centerx = np.mean([self.left_fitx, self.right_fitx], axis=0)
                 pts = np.hstack((pts_left, pts_right))
@@ -473,21 +502,23 @@ class DetectLane():
 
                 cv2.polylines(color_warp_lines, np.int_([pts_center]), isClosed=False, color=(0, 255, 255), thickness=12)
 
-        elif self.reliability_white_line <= 50 and self.reliability_yellow_line > 50:
+        elif self.reliability_white_line <= self.lane_sensitivity and self.reliability_yellow_line > self.lane_sensitivity:
             centerx = np.add(self.left_fitx, 320)
             pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
 
             cv2.polylines(color_warp_lines, np.int_([pts_center]), isClosed=False, color=(0, 255, 255), thickness=12)
 
-        elif self.reliability_white_line > 50 and self.reliability_yellow_line <= 50:
+        elif self.reliability_white_line > self.lane_sensitivity and self.reliability_yellow_line <= self.lane_sensitivity:
             centerx = np.subtract(self.right_fitx, 320)
             pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
 
             cv2.polylines(color_warp_lines, np.int_([pts_center]), isClosed=False, color=(0, 255, 255), thickness=12)
 
         else:
-            centerx = 500*np.ones(600)
-            #self.is_center_x_exist = False
+            if self.is_construction or self.is_parking:
+                centerx = 500*np.ones(600)
+            else:
+                self.is_center_x_exist = False
             pass
         #find center value
         

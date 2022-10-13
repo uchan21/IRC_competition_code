@@ -85,7 +85,7 @@ class CoreNodeController():
     def fnControlNode(self): 
         # lane_following
         if self.current_mode == self.CurrentMode.lane_following.value:
-            rospy.loginfo("New trigger for lane_following")
+            rospy.loginfo_once("New trigger for lane_following")
             self.fnLaunch(self.Launcher.launch_camera_ex_calib.value, True)
 
             self.fnLaunch(self.Launcher.launch_detect_lane.value, True)
@@ -97,12 +97,12 @@ class CoreNodeController():
 
         # intersection
         elif self.current_mode == self.CurrentMode.intersection.value:
-            rospy.loginfo("New trigger for intersection")
+            rospy.loginfo_once("New trigger for intersection")
             msg_pub_intersection_order = UInt8()
 
             if self.current_step_intersection == self.StepOfIntersection.detect_direction.value:
-                rospy.loginfo("Current step : searching_intersection_sign")
-                rospy.loginfo("Go to next step : exit")
+                rospy.loginfo_once("Current step : searching_intersection_sign")
+                rospy.loginfo_once("Go to next step : exit")
             
                 msg_pub_intersection_order.data = self.StepOfIntersection.detect_direction.value
 
@@ -116,7 +116,7 @@ class CoreNodeController():
 
               
             elif self.current_step_intersection == self.StepOfIntersection.exit.value:
-                rospy.loginfo("Current step : exit")
+                rospy.loginfo_once("Current step : exit")
 
                 msg_pub_intersection_order.data = self.StepOfIntersection.exit.value
 

@@ -178,8 +178,8 @@ class ControlMission():
                 if abs(self.current_time - time.time()) > 5:  # intersections
                     rospy.wait_for_service('gazebo/spawn_sdf_model')
                     del_model_prox = rospy.ServiceProxy('gazebo/delete_model', DeleteModel)
-                    intersection_direction = np.random.rand()
-
+                    #intersection_direction = np.random.rand()
+                    intersection_direction = 0.4
                     if intersection_direction < 0.5:
                         del_model_prox('traffic_right')
 

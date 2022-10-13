@@ -24,7 +24,7 @@ import numpy as np
 import os
 import cv2
 from enum import Enum
-from std_msgs.msg import UInt8
+from std_msgs.msg import UInt16
 from sensor_msgs.msg import Image, CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -44,7 +44,7 @@ class DetectSign():
             self.sub_image_original = rospy.Subscriber('/detect/image_input', Image, self.cbFindTrafficSign, queue_size = 1)
 
         # publishes
-        self.pub_traffic_sign = rospy.Publisher('/detect/traffic_sign', UInt8, queue_size=1)
+        self.pub_traffic_sign = rospy.Publisher('/detect/traffic_sign', UInt16, queue_size=1)
         
         if self.pub_image_type == "compressed":
             # publishes traffic sign image in compressed type 
@@ -54,7 +54,7 @@ class DetectSign():
             self.pub_image_traffic_sign = rospy.Publisher('/detect/image_output', Image, queue_size = 1)
 
         self.cvBridge = CvBridge()
-        self.TrafficSign = Enum('TrafficSign', 'construction')
+        self.TrafficSign = Enum('TrafficSign', 'idle lane_following traffic_light intersection left right construction parking level_crossing tunnel')
         self.counter = 1
 
     def fnPreproc(self):
@@ -91,7 +91,7 @@ class DetectSign():
 
         if self.sub_image_type == "compressed":
             #converting compressed image to opencv image
-            np_arr = np.frombuffer(image_msg.data, np.uint8)
+            np_arr = np.frombuffer(image_msg.data, np.UInt16)
             cv_image_input = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
         elif self.sub_image_type == "raw":
             cv_image_input = self.cvBridge.imgmsg_to_cv2(image_msg, "bgr8")
@@ -119,7 +119,7 @@ class DetectSign():
 
             mse = self.fnCalcMSE(src_pts, dst_pts)
             if mse < MIN_MSE_DECISION:
-                msg_sign = UInt8()
+                msg_sign = UInt16()
                 msg_sign.data = self.TrafficSign.construction.value
 
                 self.pub_traffic_sign.publish(msg_sign)

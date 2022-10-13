@@ -24,7 +24,7 @@ import numpy as np
 import math
 import tf
 from enum import Enum
-from std_msgs.msg import UInt8, Float64
+from std_msgs.msg import UInt16, Float64
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
@@ -37,7 +37,7 @@ class ControlMoving():
 
         self.pub_cmd_vel = rospy.Publisher('/cmd_vel', Twist, queue_size = 1)
         self.pub_max_vel = rospy.Publisher('/control/max_vel', Float64, queue_size = 1)
-        self.pub_moving_complete = rospy.Publisher('/control/moving/complete', UInt8, queue_size = 1)
+        self.pub_moving_complete = rospy.Publisher('/control/moving/complete', UInt16, queue_size = 1)
 
         #moving type enum
         self.TypeOfMoving = Enum('TypeOfMoving', 'idle left right forward backward')
@@ -47,7 +47,7 @@ class ControlMoving():
         self.current_pos_y = 0.0
         
         #moving params
-        self.moving_type = UInt8()
+        self.moving_type = UInt16()
         self.moving_angluar = 0.0
         self.moving_linear = 0.0
         self.moving_msg = MovingParam()
@@ -143,13 +143,13 @@ class ControlMoving():
         
         self.fnStop()
 
-        state = UInt8()
+        state = UInt16()
         state = self.TypeOfState.finish.value
         self.pub_moving_complete.publish(state)
 
 
     def turn_left(self, msg):
-        rospy.loginfo("turn_left function is called")
+        rospy.loginfo_once("turn_left function is called")
         if self.is_step_start == False:
             self.lastError = 0.0
             self.desired_theta = self.current_theta + math.radians(msg.moving_value_angular)
@@ -162,7 +162,7 @@ class ControlMoving():
             self.step_completed()
 
     def turn_right(self, msg):
-        rospy.loginfo("turn_right function is called")
+        rospy.loginfo_once("turn_right function is called")
         if self.is_step_start == False:
             self.lastError = 0.0
             self.desired_theta = self.current_theta - math.radians(msg.moving_value_angular)
@@ -176,7 +176,7 @@ class ControlMoving():
 
 
     def go_forward(self, msg):
-        rospy.loginfo("go_forawrd function is called")
+        rospy.loginfo_once("go_forawrd function is called")
         if self.is_step_start == False:
             self.lastErorr = 0.0
             self.start_pos_x = self.current_pos_x
@@ -191,7 +191,7 @@ class ControlMoving():
 
 
     def go_backward(self, msg):
-        rospy.loginfo("go_backward function is called")
+        rospy.loginfo_once("go_backward function is called")
         if self.is_step_start == False:
             self.lastError = 0.0
             self.start_pos_x = self.current_pos_x

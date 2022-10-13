@@ -22,18 +22,18 @@
 import rospy
 import numpy as np
 from enum import Enum
-from std_msgs.msg import UInt8
+from std_msgs.msg import UInt16
 from geometry_msgs.msg import Twist
 from turtlebot3_autorace_msgs.msg import MovingParam
 
 class CoreModeDecider():
     def __init__(self):      
         # subscribes
-        self.sub_traffic_sign = rospy.Subscriber('/detect/traffic_sign', UInt8, self.cbInvokedByTrafficSign, queue_size=1)
-        self.sub_returned_mode = rospy.Subscriber('/core/returned_mode', UInt8, self.cbReturnedMode, queue_size=1)
+        self.sub_traffic_sign = rospy.Subscriber('/detect/traffic_sign', UInt16, self.cbInvokedByTrafficSign, queue_size=1)
+        self.sub_returned_mode = rospy.Subscriber('/core/returned_mode', UInt16, self.cbReturnedMode, queue_size=1)
 
         # publishes
-        self.pub_decided_mode = rospy.Publisher('/core/decided_mode', UInt8, queue_size=1)
+        self.pub_decided_mode = rospy.Publisher('/core/decided_mode', UInt16, queue_size=1)
 
         self.InvokedObject = Enum('InvokedObject', 'traffic_sign')
         self.TrafficSign = Enum('TrafficSign', 'intersection left right')
@@ -71,7 +71,7 @@ class CoreModeDecider():
             pass
 
     def fnPublishMode(self):
-        decided_mode = UInt8()
+        decided_mode = UInt16()
         decided_mode.data = self.current_mode
         self.pub_decided_mode.publish(decided_mode)
 

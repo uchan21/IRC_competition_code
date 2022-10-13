@@ -25,7 +25,7 @@ import os
 import cv2
 
 from enum import Enum
-from std_msgs.msg import UInt8
+from std_msgs.msg import UInt16
 from sensor_msgs.msg import Image, CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -45,7 +45,7 @@ class DetectSign():
             self.sub_image_original = rospy.Subscriber('/detect/image_input', Image, self.cbFindTrafficSign, queue_size = 1)
 
         #publishes
-        self.pub_traffic_sign = rospy.Publisher('/detect/traffic_sign', UInt8, queue_size=1)
+        self.pub_traffic_sign = rospy.Publisher('/detect/traffic_sign', UInt16, queue_size=1)
 
         if self.pub_image_type == "compressed":
             # publishes traffic sign image in compressed type 
@@ -55,7 +55,7 @@ class DetectSign():
             self.pub_image_traffic_sign = rospy.Publisher('/detect/image_output', Image, queue_size = 1)
 
         self.cvBridge = CvBridge()
-        self.TrafficSign = Enum('TrafficSign', 'intersection left right')
+        self.TrafficSign = Enum('TrafficSign', 'idle lane_following traffic_light intersection left right construction parking level_crossing tunnel')
         self.counter = 1
 
     def fnPreproc(self):
@@ -90,7 +90,7 @@ class DetectSign():
 
     def cbFindTrafficSign(self, image_msg):
         # drop the frame to 1/5 (6fps) because of the processing speed. This is up to your computer's operating power.
-        if self.counter % 3 != 0:
+        if self.counter % 2 != 0:
             self.counter += 1
             return
         else:
@@ -105,7 +105,7 @@ class DetectSign():
 
         #match Count setting
         MIN_MATCH_COUNT = 9 #9
-        MIN_MSE_DECISION = 50000
+        MIN_MSE_DECISION = 40000
 
         # find the keypoints and descriptors with SIFT
         kp1, des1 = self.sift.detectAndCompute(cv_image_input,None)
@@ -129,7 +129,7 @@ class DetectSign():
 
             mse = self.fnCalcMSE(src_pts, dst_pts)
             if mse < MIN_MSE_DECISION:
-                msg_sign = UInt8()
+                msg_sign = UInt16()
                 msg_sign.data = self.TrafficSign.intersection.value
 
                 self.pub_traffic_sign.publish(msg_sign)
@@ -149,7 +149,7 @@ class DetectSign():
 
             mse = self.fnCalcMSE(src_pts, dst_pts)
             if mse < MIN_MSE_DECISION:
-                msg_sign = UInt8()
+                msg_sign = UInt16()
                 msg_sign.data = self.TrafficSign.left.value
 
                 self.pub_traffic_sign.publish(msg_sign)
@@ -165,7 +165,7 @@ class DetectSign():
             #    if m.distance < 0.7*n.distance:
             #       good_right.append(m)
 
-            #msg_sign = UInt8()
+            #msg_sign = UInt16()
             #msg_sign.data = self.TrafficSign.right.value
 
             #self.pub_traffic_sign.publish(msg_sign)
@@ -185,7 +185,7 @@ class DetectSign():
 
             mse = self.fnCalcMSE(src_pts, dst_pts)
             if mse < MIN_MSE_DECISION:
-                msg_sign = UInt8()
+                msg_sign = UInt16()
                 msg_sign.data = self.TrafficSign.right.value
 
                 self.pub_traffic_sign.publish(msg_sign)

@@ -23,7 +23,7 @@ import rospy
 import numpy as np
 import cv2
 from enum import Enum
-from std_msgs.msg import UInt8, Float64
+from std_msgs.msg import UInt16, Float64
 from sensor_msgs.msg import Image, CompressedImage
 from cv_bridge import CvBridge, CvBridgeError
 from dynamic_reconfigure.server import Server
@@ -88,13 +88,13 @@ class DetectTrafficLight():
                 self.pub_image_green_light = rospy.Publisher('/detect/image_output_sub3', Image, queue_size = 1)
 
 
-        self.sub_traffic_light_finished = rospy.Subscriber('/control/traffic_light_finished', UInt8, self.cbTrafficLightFinished, queue_size = 1)
+        self.sub_traffic_light_finished = rospy.Subscriber('/control/traffic_light_finished', UInt16, self.cbTrafficLightFinished, queue_size = 1)
 
-        self.pub_traffic_light_return = rospy.Publisher('/detect/traffic_light_stamped', UInt8, queue_size=1)
-        self.pub_parking_start = rospy.Publisher('/control/traffic_light_start', UInt8, queue_size = 1)
-        self.pub_traffic_light = rospy.Publisher('/detect/traffic_light', UInt8, queue_size=1)
+        self.pub_traffic_light_return = rospy.Publisher('/detect/traffic_light_stamped', UInt16, queue_size=1)
+        self.pub_parking_start = rospy.Publisher('/control/traffic_light_start', UInt16, queue_size = 1)
+        self.pub_traffic_light = rospy.Publisher('/detect/traffic_light', UInt16, queue_size=1)
 
-        self.CurrentMode = Enum('CurrentMode', 'idle lane_following traffic_light')
+        self.CurrentMode = Enum('CurrentMode', 'idle lane_following traffic_light intersection left right construction parking level_crossing tunnel')
     
         self.cvBridge = CvBridge()
         self.cv_image = None
@@ -219,8 +219,8 @@ class DetectTrafficLight():
         if self.green_count >= 3:
             rospy.loginfo("GREEN")
             cv2.putText(self.cv_image,"GREEN", (self.point_col, self.point_low), cv2.FONT_HERSHEY_DUPLEX, 0.5, (80, 255, 0))
-            msg_sign = UInt8()
-            msg_sign.data = self.CurrentMode.lane_following.value
+            msg_sign = UInt16()
+            msg_sign.data = self.CurrentMode.intersection.value
             
             self.pub_traffic_light.publish(msg_sign)
             self.is_traffic_light_finished = True
