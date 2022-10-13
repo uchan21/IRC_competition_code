@@ -34,14 +34,18 @@ class DetectParking():
         self.sub_moving_completed = rospy.Subscriber('/control/moving/complete', UInt8, self.cbMovingComplete, queue_size = 1)
         
         # publishes state
-        self.pub_parking_return = rospy.Publisher('/detect/parking_stamped', UInt8, queue_size=1)
-        self.pub_moving = rospy.Publisher('/control/moving/state', MovingParam, queue_size= 1)
+        self.pub_parking_return = rospy.Publisher('/detect/parking_stamped', UInt8, queue_size = 1)
+        self.pub_moving = rospy.Publisher('/control/moving/state', MovingParam, queue_size = 1)
         self.pub_max_vel = rospy.Publisher('/control/max_vel', Float64, queue_size = 1)
+
+        ## yongbin code
+        self.pub_cammand = rospy.Publisher('/control/mode', UInt8, queue_size = 1)
 
         self.StepOfParking = Enum('StepOfParking', 'parking exit')
         self.start_obstacle_detection = False
         self.is_obstacle_detected_R = False
         self.is_obstacle_detected_L = False
+        self.is_obstacle_detected_F = False
         self.is_moving_complete = False
 
     def cbMovingComplete(self, data):
@@ -62,28 +66,37 @@ class DetectParking():
             msg_moving = MovingParam()
             msg_moving.moving_type= 4
             msg_moving.moving_value_angular=0.0
-            msg_moving.moving_value_linear=0.1
+            msg_moving.moving_value_linear=0.05
             
+            mode = UInt8()
+
+            
+
+            # find right obstacle
             self.start_obstacle_detection = True
+
             for i in range(10):
                 self.pub_moving.publish(msg_moving)
                 if self.is_obstacle_detected_R == True:
+                    rospy.loginfo("Find")
                     msg_moving.moving_value_linear=0.0
                     self.pub_moving.publish(msg_moving)
+                    while True:
+                        if self.is_moving_complete == True:
+                            break
+                    self.is_moving_complete = False
                     break
+            
+            # init obstacle variable
             self.is_obstacle_detected_R == False
             self.start_obstacle_detection = False    
-            while True:
-                if self.is_moving_complete == True:
-                    break
-            self.is_moving_complete = False
 
             rospy.sleep(1)
 
             rospy.loginfo("go left")
             msg_moving = MovingParam()
             msg_moving.moving_type=2
-            msg_moving.moving_value_angular=90
+            msg_moving.moving_value_angular=100
             msg_moving.moving_value_linear=0.0
             self.pub_moving.publish(msg_moving)
             while True:
@@ -105,6 +118,12 @@ class DetectParking():
             self.is_moving_complete = False
 
             rospy.sleep(1)
+
+            if self.is_obstacle_detected_R == True:
+                msg_moving.moving_value_linear=0.0
+                self.pub_moving.publish(msg_moving)
+                mode.data = 2 # mode moving
+                self.pub_cammand.publish(mode)
 
             self.start_obstacle_detection = True
             while True:
@@ -164,45 +183,6 @@ class DetectParking():
                 self.is_moving_complete = False
 
                 rospy.sleep(1)
-
-                rospy.loginfo("go straight")
-                msg_moving = MovingParam()
-                msg_moving.moving_type= 4
-                msg_moving.moving_value_angular=0.0
-                msg_moving.moving_value_linear=0.9
-                self.pub_moving.publish(msg_moving)
-                while True:
-                    if self.is_moving_complete == True:
-                        break
-                self.is_moving_complete = False
-
-                rospy.sleep(1)
-
-                rospy.loginfo("go left")
-                msg_moving = MovingParam()
-                msg_moving.moving_type=2
-                msg_moving.moving_value_angular=90
-                msg_moving.moving_value_linear=0.0
-                self.pub_moving.publish(msg_moving)
-                while True:
-                    if self.is_moving_complete == True:
-                        break
-                self.is_moving_complete = False
-
-                rospy.sleep(1)   
-
-                rospy.loginfo("go straight")
-                msg_moving = MovingParam()
-                msg_moving.moving_type=4
-                msg_moving.moving_value_angular=0.0
-                msg_moving.moving_value_linear=0.2
-                self.pub_moving.publish(msg_moving)
-                while True:
-                    if self.is_moving_complete == True:
-                        break
-                self.is_moving_complete = False
-
-                rospy.sleep(1)       
             
             elif self.is_obstacle_detected_L == False:
                 rospy.loginfo("left parking is clear")
@@ -257,21 +237,27 @@ class DetectParking():
                 self.is_moving_complete = False
 
                 rospy.sleep(1)
+            # back 
+            rospy.loginfo("go straight")
+            msg_moving = MovingParam()
+            msg_moving.moving_type= 4
+            msg_moving.moving_value_angular=0.0
+            msg_moving.moving_value_linear=0.7
+            self.pub_moving.publish(msg_moving)
+            while True:
+                if self.is_moving_complete == True:
+                    break
+            self.is_moving_complete = False
 
-                rospy.loginfo("go straight")
-                msg_moving = MovingParam()
-                msg_moving.moving_type= 4
-                msg_moving.moving_value_angular=0.0
-                msg_moving.moving_value_linear=1.0
-                self.pub_moving.publish(msg_moving)
-                while True:
-                    if self.is_moving_complete == True:
-                        break
-                self.is_moving_complete = False
+            rospy.sleep(1)
 
-                rospy.sleep(1)
+            mode.data = 1 # mode lane
+            self.pub_cammand.publish(mode)
 
-                rospy.loginfo("go left")
+            # detect front obstacle
+            if self.is_obstacle_detected_F == True:
+                rospy.logdebug("Front is sign")
+                rospy.logdebug("go left")
                 msg_moving = MovingParam()
                 msg_moving.moving_type=2
                 msg_moving.moving_value_angular=90
@@ -295,6 +281,9 @@ class DetectParking():
                         break
                 self.is_moving_complete = False
 
+                mode.data = 2 # mode moving
+            self.pub_cammand.publish(mode)
+
             rospy.loginfo("parking finished")
             msg_pub_parking_return.data = self.StepOfParking.exit.value
 
@@ -314,6 +303,9 @@ class DetectParking():
         scan_start_right = 270 - angle_scan
         scan_end_right = 270 + angle_scan
 
+        scan_start_front = -angle_scan
+        scan_end_front = angle_scan
+
         threshold_distance = 0.5
 
         if self.start_obstacle_detection == True:
@@ -322,11 +314,16 @@ class DetectParking():
                     self.is_obstacle_detected_L = True
                     rospy.loginfo("left detected")
             
-
             for i in range(scan_start_right, scan_end_right):
                 if scan.ranges[i] < threshold_distance and scan.ranges[i] > 0.01:
                     self.is_obstacle_detected_R = True
                     rospy.loginfo("right detected")
+
+            for i in range(scan_start_front, scan_end_front):
+                if scan.ranges[i] < threshold_distance and scan.ranges[i] > 0.01:
+                    self.is_obstacle_detected_F = True
+                    rospy.loginfo("front detected")
+
             self.start_obstacle_detection = False
 
     def main(self):
