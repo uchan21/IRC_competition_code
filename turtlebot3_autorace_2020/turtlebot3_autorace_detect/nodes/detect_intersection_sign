@@ -105,7 +105,7 @@ class DetectSign():
 
         #match Count setting
         MIN_MATCH_COUNT = 9 #9
-        MIN_MSE_DECISION = 40000
+        MIN_MSE_DECISION = 50000
 
         # find the keypoints and descriptors with SIFT
         kp1, des1 = self.sift.detectAndCompute(cv_image_input,None)

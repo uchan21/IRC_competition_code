@@ -395,18 +395,22 @@ class DetectTrafficLight():
             if self.point_col > col1 and self.point_col < col2 and self.point_low > low1 and self.point_low < low2:
                 if find_color == 'green':
                     status = 1
+                    break
                 elif find_color == 'yellow':
                     status = 2
+                    break
                 elif find_color == 'red':
                     status = 3
+                    break
             elif self.point_col > col2 and self.point_col < col3 and self.point_low > low1 and self.point_low < low3:
                 if find_color == 'red':
                     status = 4
+                    break
                 elif find_color == 'green':
                     status = 5
+                    break
             else:
                 status = 6
-
         return status
 
     def cbTrafficLightFinished(self, traffic_light_finished_msg):

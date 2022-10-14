@@ -18,7 +18,7 @@ detect:
     green:
       hue_l: 40
       hue_h: 113
-      saturation_l: 210
+      saturation_l: 181
       saturation_h: 255
       lightness_l: 131
       lightness_h: 255

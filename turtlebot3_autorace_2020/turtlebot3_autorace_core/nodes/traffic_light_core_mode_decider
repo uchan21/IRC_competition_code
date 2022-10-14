@@ -71,8 +71,7 @@ class CoreModeDecider():
                 self.current_mode = self.CurrentMode.construction.value
         elif not self.current_mode == msg_data.data:
             self.current_mode = msg_data.data
-        elif msg_data.data == self.CurrentMode.construction.value:
-            self.is_parking = True
+        elif self.current_mode == self.CurrentMode.construction.value:
             self.current_mode = self.CurrentMode.parking.value
         else:
             pass

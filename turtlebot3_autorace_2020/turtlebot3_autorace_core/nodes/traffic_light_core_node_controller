@@ -58,6 +58,8 @@ class CoreNodeController():
 
         self.is_triggered = False
         
+        self.construct_count = 0
+        self.parking_count = 0
         # custom variable
         self.current_sign_mission = ['intersection', 'construction', 'parking', 'level_crossing', 'tunnel']
         self.current_sign_num = 4
@@ -134,39 +136,46 @@ class CoreNodeController():
 
         # construction
         elif self.current_mode == self.CurrentMode.construction.value:
-            rospy.sleep(15)
-            if not (self.current_sign_num == 1):
-                self.current_sign_num = 1
-                self.fnLaunch(self.Launcher.launch_detect_sign.value, False)
-            rospy.loginfo_once("Current step : Construction")
-            self.fnLaunch(self.Launcher.launch_camera_ex_calib.value, True)
-            self.fnLaunch(self.Launcher.launch_detect_lane.value, True)
-            self.fnLaunch(self.Launcher.launch_detect_sign.value, True)
-            self.fnLaunch(self.Launcher.launch_detect_traffic_light.value, False)
-            
-            self.fnLaunch(self.Launcher.launch_detect_level.value, False)
-            self.fnLaunch(self.Launcher.launch_control_lane.value, True)
-            self.fnLaunch(self.Launcher.launch_control_moving.value, False)
+            if self.construct_count < 120:
+                rospy.loginfo("construct delay: {}".format(self.construct_count))
+                self.construct_count += 1
+            else:
+                if not (self.current_sign_num == 1):
+                    self.current_sign_num = 1
+                    self.fnLaunch(self.Launcher.launch_detect_sign.value, False)
+                rospy.loginfo_once("Current step : Construction")
+                self.fnLaunch(self.Launcher.launch_camera_ex_calib.value, True)
+                self.fnLaunch(self.Launcher.launch_detect_lane.value, True)
+                self.fnLaunch(self.Launcher.launch_detect_sign.value, True)
+                self.fnLaunch(self.Launcher.launch_detect_traffic_light.value, False)
+                
+                self.fnLaunch(self.Launcher.launch_detect_level.value, False)
+                self.fnLaunch(self.Launcher.launch_control_lane.value, True)
+                self.fnLaunch(self.Launcher.launch_control_moving.value, True)
 
-            rospy.sleep(3)
+                rospy.sleep(3)
 
         # parking
         elif self.current_mode == self.CurrentMode.parking.value:
-            rospy.sleep(25)
-            if not (self.current_sign_num == 2):
-                self.current_sign_num = 2
-                self.fnLaunch(self.Launcher.launch_detect_sign.value, False)
-            rospy.loginfo_once("Current step : Parking")
-            self.fnLaunch(self.Launcher.launch_camera_ex_calib.value, True)
-            self.fnLaunch(self.Launcher.launch_detect_lane.value, True)
-            self.fnLaunch(self.Launcher.launch_detect_sign.value, True)
-            self.fnLaunch(self.Launcher.launch_detect_traffic_light.value, False)
+            if self.parking_count < 200:
+                rospy.loginfo("parking delay: {}".format(self.parking_count))
+                self.parking_count += 1
+                #self.parking_count = 200
+            else:
+                if not (self.current_sign_num == 2):
+                    self.current_sign_num = 2
+                    self.fnLaunch(self.Launcher.launch_detect_sign.value, False)
+                rospy.loginfo_once("Current step : Parking")
+                self.fnLaunch(self.Launcher.launch_camera_ex_calib.value, True)
+                self.fnLaunch(self.Launcher.launch_detect_lane.value, True)
+                self.fnLaunch(self.Launcher.launch_detect_sign.value, True)
+                self.fnLaunch(self.Launcher.launch_detect_traffic_light.value, False)
 
-            self.fnLaunch(self.Launcher.launch_detect_level.value, False)
-            self.fnLaunch(self.Launcher.launch_control_lane.value, True)
-            self.fnLaunch(self.Launcher.launch_control_moving.value, True)
+                self.fnLaunch(self.Launcher.launch_detect_level.value, False)
+                self.fnLaunch(self.Launcher.launch_control_lane.value, True)
+                self.fnLaunch(self.Launcher.launch_control_moving.value, True)
 
-            rospy.sleep(3)
+                rospy.sleep(3)
 
         # level_crossing
         elif self.current_mode == self.CurrentMode.level_crossing.value:

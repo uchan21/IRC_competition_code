@@ -117,7 +117,7 @@ class DetectLane():
             pass
         elif traffic_sign_type_msg.data == self.TrafficSign.construction.value:
             self.is_construction = True
-            self.lane_sensitivity = 60
+            self.lane_sensitivity = 80
             self.lane_gain = 40
             pass
         elif traffic_sign_type_msg.data == self.TrafficSign.level_crossing.value:
@@ -477,7 +477,7 @@ class DetectLane():
                 self.reliability_yellow_line = 0
                 self.direction_counter += 5
             #self.moving_direction = 0
-        rospy.loginfo("{}, {}".format(self.reliability_yellow_line, self.reliability_white_line))
+        # rospy.loginfo("{}, {}".format(self.reliability_yellow_line, self.reliability_white_line))
         # find center value
         if self.reliability_white_line > self.lane_sensitivity and self.reliability_yellow_line > self.lane_sensitivity:   
             if white_fraction > 3000 and yellow_fraction > 3000:
@@ -491,25 +491,25 @@ class DetectLane():
                 cv2.fillPoly(color_warp, np.int_([pts]), (0, 255, 0))
 
             if white_fraction > 3000 and yellow_fraction <= 3000:
-                centerx = np.subtract(self.right_fitx, 320)
+                centerx = np.subtract(self.right_fitx, 290)
                 pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
 
                 cv2.polylines(color_warp_lines, np.int_([pts_center]), isClosed=False, color=(0, 255, 255), thickness=12)
 
             if white_fraction <= 3000 and yellow_fraction > 3000:
-                centerx = np.add(self.left_fitx, 320)
+                centerx = np.add(self.left_fitx, 290)
                 pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
 
                 cv2.polylines(color_warp_lines, np.int_([pts_center]), isClosed=False, color=(0, 255, 255), thickness=12)
 
         elif self.reliability_white_line <= self.lane_sensitivity and self.reliability_yellow_line > self.lane_sensitivity:
-            centerx = np.add(self.left_fitx, 320)
+            centerx = np.add(self.left_fitx, 290)
             pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
 
             cv2.polylines(color_warp_lines, np.int_([pts_center]), isClosed=False, color=(0, 255, 255), thickness=12)
 
         elif self.reliability_white_line > self.lane_sensitivity and self.reliability_yellow_line <= self.lane_sensitivity:
-            centerx = np.subtract(self.right_fitx, 320)
+            centerx = np.subtract(self.right_fitx, 290)
             pts_center = np.array([np.transpose(np.vstack([centerx, ploty]))])
 
             cv2.polylines(color_warp_lines, np.int_([pts_center]), isClosed=False, color=(0, 255, 255), thickness=12)
