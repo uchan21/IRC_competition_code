@@ -1,0 +1,484 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+################################################################################
+# Copyright 2018 ROBOTIS CO., LTD.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+################################################################################
+
+# Author: Leon Jung, Gilbert, Ashe Kim
+ 
+import rospy
+import numpy as np
+from sensor_msgs.msg import LaserScan
+from std_msgs.msg import Float64, UInt8
+from geometry_msgs.msg import Twist
+from enum import Enum
+from turtlebot3_autorace_msgs.msg import MovingParam
+class ControlLane():
+    def __init__(self):
+        self.lastError = 0
+        #self.MAX_VEL = 0.1
+        self.MAX_VEL = 0.22
+
+        self.is_obstacle_detected = False
+        self.yellow_reliability = 100
+        self.white_reliability = 100
+        self.object_compensate = 0
+        self.CurrentMode = Enum('CurrentMode', 'idle lane_following traffic_light intersection left right construction parking level_crossing tunnel')
+        # 0 = none, 1 = construction, 2 = parking
+        self.lidar_on = 0
+        self.is_parking_find = False
+        self.is_moving_complete = False
+        self.is_parking_complete = False 
+        self.lidar_counter = 0
+
+        # Object scan & control modify
+        self.sub_traffic_sign = rospy.Subscriber('/detect/traffic_sign', UInt8, self.cbInvokedByTrafficSign, queue_size=1)
+        self.sub_yellow_line_reliability = rospy.Subscriber('/detect/yellow_line_reliability', UInt8, self.cbYellowRel, queue_size=1)
+        self.sub_white_line_reliability = rospy.Subscriber('/detect/white_line_reliability', UInt8, self.cbWhiteRel, queue_size=1)
+        self.sub_scan_obstacle = rospy.Subscriber('/scan', LaserScan, self.cbScanObstacle, queue_size=1)
+        # Original lane following
+        self.sub_lane = rospy.Subscriber('/control/lane', Float64, self.cbFollowLane, queue_size = 1)
+        self.sub_max_vel = rospy.Subscriber('/control/max_vel', Float64, self.cbGetMaxVel, queue_size = 1)
+        self.pub_cmd_vel = rospy.Publisher('/control/cmd_vel', Twist, queue_size = 1)
+        self.pub_moving = rospy.Publisher('/control/moving/state', MovingParam, queue_size= 1)
+        self.sub_moving_completed = rospy.Subscriber('/control/moving/complete', UInt8, self.cbMovingComplete, queue_size = 1)
+
+
+        rospy.on_shutdown(self.fnShutDown)
+
+    def cbMovingComplete(self, data):
+        self.is_moving_complete = True
+
+    def cbInvokedByTrafficSign(self, traffic_sign_type_msg):
+        rospy.loginfo("invoke sign")
+        if traffic_sign_type_msg.data == self.CurrentMode.construction.value:
+            self.lidar_on = 1
+        elif traffic_sign_type_msg.data == self.CurrentMode.parking.value and not self.is_parking_find:
+            self.lidar_on = 2
+        elif traffic_sign_type_msg.data == self.CurrentMode.tunnel.value:
+            self.lidar_on = 3
+        else:
+            self.lidar_on = 0
+        rospy.loginfo("Traffic sign detected")
+
+    def cbYellowRel(self, reliable_msg):
+        self.yellow_reliability = reliable_msg.data
+
+    def cbWhiteRel(self, reliable_msg):
+        self.white_reliability = reliable_msg.data
+
+    def cbGetMaxVel(self, max_vel_msg):
+        self.MAX_VEL = max_vel_msg.data
+
+    def cbFollowLane(self, desired_center):
+        if self.is_parking_find or self.lidar_counter > 100:
+            pass
+        else:
+            center = desired_center.data + self.object_compensate
+
+            if self.lidar_on == 1:
+                min_vel = 0.2
+                max_ang = 2.0
+            elif self.lidar_on == 2:
+                min_vel = 0.15
+                max_ang = 2.0
+                center += -50
+            else :
+                min_vel = 0.2
+                max_ang = 2.5
+
+            #rospy.loginfo("{}".format(center))
+            if center < 0:
+                error = -500
+            elif center > 1000:
+                error = 500
+            else:
+                error = center - 500
+            
+            #Basic PD
+            Kp = 0.007
+            Kd = 0.017
+            #Custom PD1
+            #Kp = 0.004
+            #Kd = 0.01
+            # Custom PD2
+            #Kp = 0.005
+            #Kd = 0.015
+
+            angular_z = Kp * error + Kd * (error - self.lastError)
+            self.lastError = error
+            #rospy.loginfo("speed = {}".format(self.MAX_VEL))
+            if self.MAX_VEL == 0:
+                self.fnShutDown()
+            else:
+                twist = Twist()
+                # twist.linear.x = 0.05        
+                twist.linear.x = min(max(self.MAX_VEL * ((1 - abs(error) / 500) ** 2.2),0.05), min_vel)
+                twist.linear.y = 0
+                twist.linear.z = 0
+                twist.angular.x = 0
+                twist.angular.y = 0
+                twist.angular.z = -max(angular_z, -max_ang) if angular_z < 0 else -min(angular_z, max_ang)
+                self.pub_cmd_vel.publish(twist)
+
+    def fnShutDown(self):
+        #rospy.loginfo("Shutting down. cmd_vel will be 0")
+
+        twist = Twist()
+        twist.linear.x = 0
+        twist.linear.y = 0
+        twist.linear.z = 0
+        twist.angular.x = 0
+        twist.angular.y = 0
+        twist.angular.z = 0
+        self.pub_cmd_vel.publish(twist) 
+    
+    def cbScanObstacle(self, scan):
+        if self.lidar_on == 1:
+            angle_scan = 20
+            scan_start = 0 - angle_scan
+            scan_end = 0 + angle_scan
+            is_obstacle_detected = False
+            detectlist = []
+            summation = 0
+            for i in range(scan_start, scan_end):
+                if scan.ranges[i] < 0.45/np.cos(np.pi * i / 180) and scan.ranges[i] > 0.1:
+                    is_obstacle_detected = True
+                    detectlist.append(abs(i))
+                    summation += i
+
+            if is_obstacle_detected == True and abs(self.object_compensate) < 231:
+                rospy.loginfo("Object detected@@@ {}".format(min(detectlist)))
+                if self.white_reliability > self.yellow_reliability and self.yellow_reliability <= 60:
+                    self.object_compensate += -33
+                    rospy.loginfo("Object detected@@@WHITE NEAR")
+                elif self.white_reliability <= 60 and self.yellow_reliability > self.white_reliability:
+                    rospy.loginfo("Object detected@@@YELLOW NEAR")
+                    self.object_compensate += 22
+                else:
+                    if summation  > 0:
+                        self.object_compensate += 32
+                    elif summation < 0:
+                        self.object_compensate += -32
+            else:
+                self.object_compensate = 0
+
+            if abs(self.object_compensate) >= 231:
+                self.object_compensate = 231
+            
+            self.is_obstacle_detected = is_obstacle_detected
+            rospy.sleep(0.2)
+        elif self.lidar_on == 2:
+            if self.lidar_counter < 100:
+                self.lidar_counter += 4
+                rospy.loginfo("{}".format(self.lidar_counter))
+            elif self.is_parking_complete :
+                self.lidar_on = 0
+            else:
+                angle_scan = 60
+
+                scan_start_left = 0
+                scan_end_left = 0 + angle_scan
+
+                scan_start_right = 0 - angle_scan
+                scan_end_right = 0
+
+                threshold_distance = 0.5
+
+                for i in range(scan_start_left, scan_end_left):
+                    if scan.ranges[i] < threshold_distance and scan.ranges[i] > 0.01 and not self.is_parking_complete:
+                        self.fnShutDown()
+                        self.is_parking_find = True
+                        rospy.loginfo("left detected")
+                        self.lidar_on = 0
+                        self.parking_moving(True, scan.ranges[i]*np.cos(i*np.pi/180))
+                        self.is_parking_complete = True
+                        self.lidar_counter = 0
+                        break
+                        
+                    
+                for i in range(scan_start_right, scan_end_right):
+                    if scan.ranges[i] < threshold_distance and scan.ranges[i] > 0.01 and not self.is_parking_complete:
+                        self.fnShutDown()
+                        self.is_parking_find = True
+                        rospy.loginfo("right detected")
+                        self.lidar_on = 0
+                        self.parking_moving(False, scan.ranges[i]*np.cos(i*np.pi/180))
+                        self.is_parking_complete = True
+                        break
+        elif self.lidar_on == 3:
+            if self.lidar_counter < 100:
+                self.lidar_counter += 2.5
+                rospy.loginfo("{}".format(self.lidar_counter))
+            else:
+                angle_scan = 60
+
+                # scan from right
+                scan_start = 0 - angle_scan
+                scan_end = 0 + angle_scan
+                
+                threshold_distance = 0.4
+                blank_stack = 0
+                target_angle = 0
+                for i in range(scan_start, scan_end):
+                    #rospy.loginfo("range: {}, i: {}".format(scan.ranges[i], i))
+                    if scan.ranges[i] > threshold_distance:
+                        rospy.loginfo("blank_stack: {}".format(blank_stack))
+                        blank_stack += 1
+                    else:
+                        if blank_stack >26:
+                            target_angle = i - (blank_stack // 2)
+                            rospy.loginfo("target_angle: {}".format(target_angle))
+                            if target_angle > -5 and target_angle < 5:
+                                target_angle = 0
+                                pass
+                            else:
+                                self.fnShutDown()
+                                self.tunnel_moving(False, target_angle)
+                                break
+                        else:
+                            blank_stack = 0
+
+
+                self.tunnel_moving()                    
+        else:
+            pass
+    def parking_moving(self, is_left, distance):
+        if is_left == True:
+
+            msg_moving = MovingParam()
+            msg_moving.moving_type=3
+            msg_moving.moving_value_angular=8
+            msg_moving.moving_value_linear=0.0
+            self.pub_moving.publish(msg_moving)
+            while True:
+                if self.is_moving_complete == True:
+                    break
+            self.is_moving_complete = False
+            
+            rospy.sleep(1)
+
+            rospy.loginfo_once("go straight")
+            msg_moving = MovingParam()
+            msg_moving.moving_type= 4
+            msg_moving.moving_value_angular=0
+            msg_moving.moving_value_linear=0.4
+            self.pub_moving.publish(msg_moving)
+            while True:
+                if self.is_moving_complete == True:
+                    break
+            self.is_moving_complete = False
+
+            rospy.sleep(1)
+
+            msg_moving = MovingParam()
+            msg_moving.moving_type=3
+            msg_moving.moving_value_angular=90
+            msg_moving.moving_value_linear=0.0
+            self.pub_moving.publish(msg_moving)
+            while True:
+                if self.is_moving_complete == True:
+                    break
+            self.is_moving_complete = False
+
+            rospy.sleep(1)
+
+            rospy.loginfo_once("go straight")
+            msg_moving = MovingParam()
+            msg_moving.moving_type= 4
+            msg_moving.moving_value_angular=0.0
+            msg_moving.moving_value_linear=0.25
+            self.pub_moving.publish(msg_moving)
+            while True:
+                if self.is_moving_complete == True:
+                    break
+            self.is_moving_complete = False
+
+            rospy.sleep(1)
+            
+            rospy.loginfo_once("go back straight")
+            msg_moving = MovingParam()
+            msg_moving.moving_type= 5
+            msg_moving.moving_value_angular=0.0
+            msg_moving.moving_value_linear=0.20
+            self.pub_moving.publish(msg_moving)
+            while True:
+                if self.is_moving_complete == True:
+                    break
+            self.is_moving_complete = False
+
+            rospy.sleep(1)
+
+            rospy.loginfo_once("go right")
+            msg_moving = MovingParam()
+            msg_moving.moving_type= 3
+            msg_moving.moving_value_angular=80
+            msg_moving.moving_value_linear=0.0
+            self.pub_moving.publish(msg_moving)
+            while True:
+                if self.is_moving_complete == True:
+                    break
+            self.is_moving_complete = False
+            
+            rospy.sleep(1)
+        
+        else:
+            rospy.loginfo_once("go straight")
+            msg_moving = MovingParam()
+            msg_moving.moving_type= 4
+            msg_moving.moving_value_angular=0.0
+            msg_moving.moving_value_linear=0.4
+            self.pub_moving.publish(msg_moving)
+            while True:
+                if self.is_moving_complete == True:
+                    break
+            self.is_moving_complete = False
+
+            rospy.sleep(1)
+
+            rospy.loginfo_once("go left")
+            msg_moving = MovingParam()
+            msg_moving.moving_type=2
+            msg_moving.moving_value_angular=90
+            msg_moving.moving_value_linear=0.0
+            self.pub_moving.publish(msg_moving)
+            while True:
+                if self.is_moving_complete == True:
+                    break
+            self.is_moving_complete = False
+
+            rospy.sleep(1)
+
+            rospy.loginfo_once("go straight")
+            msg_moving = MovingParam()
+            msg_moving.moving_type= 4
+            msg_moving.moving_value_angular=0.0
+            msg_moving.moving_value_linear=0.20
+            self.pub_moving.publish(msg_moving)
+            while True:
+                if self.is_moving_complete == True:
+                    break
+            self.is_moving_complete = False
+
+            rospy.sleep(1)
+            
+            rospy.loginfo_once("go back straight")
+            msg_moving = MovingParam()
+            msg_moving.moving_type= 5
+            msg_moving.moving_value_angular=0.0
+            msg_moving.moving_value_linear=0.20
+            self.pub_moving.publish(msg_moving)
+            while True:
+                if self.is_moving_complete == True:
+                    break
+            self.is_moving_complete = False
+
+            rospy.sleep(1)
+
+            rospy.loginfo_once("go left")
+            msg_moving = MovingParam()
+            msg_moving.moving_type= 2
+            msg_moving.moving_value_angular=90
+            msg_moving.moving_value_linear=0.0
+            self.pub_moving.publish(msg_moving)
+            while True:
+                if self.is_moving_complete == True:
+                    break
+            self.is_moving_complete = False
+            rospy.sleep(1)
+
+        rospy.loginfo("go straight")
+        msg_moving = MovingParam()
+        msg_moving.moving_type=4
+        msg_moving.moving_value_angular=0.0
+        msg_moving.moving_value_linear=0.3
+        self.pub_moving.publish(msg_moving)
+        while True:
+            if self.is_moving_complete == True:
+                break
+        self.is_moving_complete = False
+        self.is_parking_find = False
+        rospy.sleep(1)
+
+    def tunnel_moving(self, is_straight = True, angle= 0):
+        if is_straight:
+            rospy.loginfo("go straight")
+            twist = Twist()
+            # twist.linear.x = 0.05        
+            twist.linear.x = 0.2
+            twist.linear.y = 0
+            twist.linear.z = 0
+            twist.angular.x = 0
+            twist.angular.y = 0
+            twist.angular.z = 0
+            self.pub_cmd_vel.publish(twist)
+        else:
+            if angle > 0:
+                rospy.loginfo_once("go right")
+                msg_moving = MovingParam()
+                msg_moving.moving_type= 3
+                msg_moving.moving_value_angular=angle
+                msg_moving.moving_value_linear=0.0
+                self.pub_moving.publish(msg_moving)
+                while True:
+                    if self.is_moving_complete == True:
+                        break
+                self.is_moving_complete = False
+                rospy.sleep(0.5)
+                
+                rospy.loginfo("go straight")
+                twist = Twist()
+                # twist.linear.x = 0.05        
+                twist.linear.x = 0.2
+                twist.linear.y = 0
+                twist.linear.z = 0
+                twist.angular.x = 0
+                twist.angular.y = 0
+                twist.angular.z = 0
+                self.pub_cmd_vel.publish(twist)
+                
+            
+            else:
+                rospy.loginfo_once("go left")
+                msg_moving = MovingParam()
+                msg_moving.moving_type= 2
+                msg_moving.moving_value_angular=-angle
+                msg_moving.moving_value_linear=0.0
+                self.pub_moving.publish(msg_moving)
+                while True:
+                    if self.is_moving_complete == True:
+                        break
+                self.is_moving_complete = False
+                rospy.sleep(0.5)
+
+                rospy.loginfo("go straight")
+                twist = Twist()
+                # twist.linear.x = 0.05        
+                twist.linear.x = 0.2
+                twist.linear.y = 0
+                twist.linear.z = 0
+                twist.angular.x = 0
+                twist.angular.y = 0
+                twist.angular.z = 0
+                self.pub_cmd_vel.publish(twist)
+
+    def main(self):
+        rospy.spin()
+
+if __name__ == '__main__':
+    rospy.init_node('control_lane')
+    node = ControlLane()
+    node.main()
